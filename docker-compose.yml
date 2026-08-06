@@ -1,52 +1,82 @@
-version: '3.8'
 services:
+
   nginx:
     image: nginx:alpine
-    container_name: proxy-nginx
+    container_name: proxy_nginx
+
     ports:
       - "80:80"
+
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - app-backend
+    - app-backend:
+      conditions:
+         - service_healthy
+         
     networks:
       - red-cba
 
-  app-backend:
-    image: ${IMAGE_NAME}:${IMAGE_TAG}
-    container_name: app-backend
-    ports:
-      - "${APP_PORT}:5050"
-    depends_on:
-      - servidor-bd
-    networks:
-      - red-cba
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      FLASK_DEBUG: ${FLASK_DEBUG}
+
+
 
   servidor-bd:
     image: mysql:8.0
     container_name: servidor-bd
-    restart: unless-stopped
+    restart: always
+
+    env_file:
+      - .env
+
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - mysql-data:/var/lib/mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
     ports:
       - "3306:3306"
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+    networks:
+      - red-cba
+
+  app-backend:
+    image: wscanga/app-backend:v2
+    container_name: app-backend
+    restart: always
+    build: .
+
+    depends_on:
+      - servidor-bd:
+        condition:
+          - service_healthy
+
+    env_file:
+      - .env
+
+    ports:
+      - "${FLASK_PORT}:5050"
+
+    volumes:
+      - .:/home/myapp
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+
+
     networks:
       - red-cba
 
 networks:
   red-cba:
+    driver: bridge
 
 volumes:
   mysql-data:
