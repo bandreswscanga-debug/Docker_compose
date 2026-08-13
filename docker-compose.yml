@@ -48,7 +48,7 @@ services:
       - red-cba
 
   app-backend:
-    image: wscanga/app-backend:v2
+    image: ${IMAGE_NAME}:${IMAGE_TAG}
     container_name: app-backend
     restart: always
     build: .
@@ -64,7 +64,7 @@ services:
       - "${FLASK_PORT}:5050"
 
     volumes:
-      - .:/home/myapp
+      - .:/app
 
     healthcheck:
       test:
