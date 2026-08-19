@@ -11,3 +11,9 @@ ENV/
 .gitignore
 .DS_Store
 frontend/
+
+# Secretos y datos locales
+.env
+.env.example
+npm_data/
+npm_letsencrypt/

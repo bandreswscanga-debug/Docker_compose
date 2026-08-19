@@ -11,3 +11,7 @@ __pycache__/
 
 # Docker
 *.log
+
+# Nginx Proxy Manager data (contiene claves y certificados)
+npm_data/
+npm_letsencrypt/

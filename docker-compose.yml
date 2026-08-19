@@ -4,9 +4,9 @@ services:
     container_name: proxy-manager
     restart: always
     ports:
-      - "80:80"     # HTTP
-      - "81:81"     # Administración
-      - "443:443"   # HTTPS
+      - "80:80"     # HTTP (público)
+      - "81:81"     # Panel admin (restringir por Security Group a IP propia)
+      - "443:443"   # HTTPS (público)
     volumes:
       - ./npm_data:/data
       - ./npm_letsencrypt:/etc/letsencrypt
@@ -27,17 +27,18 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
-    ports:
-      - "3306:3306"
-
+    # 3306 NO se publica: solo es accesible por la red interna Docker
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./mysql/conf.d:/etc/mysql/conf.d:ro
+
+    mem_limit: 512m
 
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"
         ]
       interval: 10s
       timeout: 5s
@@ -48,10 +49,10 @@ services:
       - red-cba
 
   app-backend:
-    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    build: .
+    image: app-backend:local
     container_name: app-backend
     restart: always
-    build: .
 
     depends_on:
       servidor-bd:
@@ -60,12 +61,7 @@ services:
     env_file:
       - .env
 
-    ports:
-      - "${FLASK_PORT}:5050"
-
-    volumes:
-      - .:/app
-
+    # 5050 NO se publica: Nginx Proxy Manager lo alcanza por red interna
     healthcheck:
       test:
         [
@@ -82,13 +78,28 @@ services:
     networks:
       - red-cba
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: always
+
+    ports:
+      - "3001:3001"
+
+    volumes:
+      - uptime-kuma-data:/app/data
+
+    networks:
+      - red-cba
+
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: always
 
+    # Solo accesible por localhost (túnel SSH). No expuesto a Internet.
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -104,3 +115,4 @@ networks:
 volumes:
   mysql-data:
   portainer-data:
+  uptime-kuma-data:
