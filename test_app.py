@@ -19,7 +19,7 @@ def test_index_returns_200(client):
 
     with patch("sample_app.get_db_connection", return_value=mock_conn):
         response = client.get("/")
-        assert response.status_code == 200
+        assert response.status_code == 500  # FORZAR FALLO PARA DEMO
 
 
 def test_api_aprendices_returns_json(client):
