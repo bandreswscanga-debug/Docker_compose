@@ -67,6 +67,22 @@ jobs:
       - name: Subir imagen a Docker Hub
         run: docker push "${{ secrets.DOCKER_USERNAME }}/app-backend:latest"
 
+      - name: Debug SSH connection
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          echo "HOST: $SERVER_HOST"
+          echo "USER: $SERVER_USER"
+          echo "KEY length: ${#SERVER_SSH_KEY}"
+          mkdir -p ~/.ssh
+          echo "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -l -f ~/.ssh/deploy_key 2>&1 || echo "INVALID KEY"
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_HOST}" "echo SSH_OK" 2>&1 | tail -20
+
       - name: Desplegar en servidor cloud
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
