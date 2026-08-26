@@ -67,18 +67,20 @@ jobs:
       - name: Subir imagen a Docker Hub
         run: docker push "${{ secrets.DOCKER_USERNAME }}/app-backend:latest"
 
-      - name: Configurar SSH
+      - name: Desplegar en servidor cloud
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Desplegar en servidor cloud
-        run: |
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            .github/workflows/deploy_remote.sh "${USER}@${HOST}:~/deploy_remote.sh"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o ConnectTimeout=30 \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "cd ~/Docker_compose && git fetch origin main && git reset --hard origin/main && docker compose build app-backend && docker compose up -d --no-build app-backend && docker compose ps app-backend"
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            -o RequestTTY=force \
+            "${USER}@${HOST}" "chmod +x ~/deploy_remote.sh && bash ~/deploy_remote.sh"
