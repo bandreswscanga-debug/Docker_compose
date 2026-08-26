@@ -79,5 +79,6 @@ jobs:
       - name: Desplegar en servidor cloud
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o ConnectTimeout=30 \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "cd ~/Docker_compose && git fetch origin main && git reset --hard origin/main && docker compose build app-backend && docker compose up -d --no-build app-backend && docker compose ps app-backend"
