@@ -2,47 +2,90 @@ name: CI/CD - Test y Despliegue
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
+      - feature/vulnerabilidades
   workflow_dispatch:
 
 jobs:
-  test:
+  test-and-security:
     runs-on: ubuntu-latest
-    name: Tests
     steps:
-      - name: Descargar codigo
+      - name: Descargar código
         uses: actions/checkout@v4
 
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Instalar dependencias
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
 
       - name: Ejecutar pruebas
         run: pytest test_app.py -v
 
-  build-and-deploy:
+      - name: Escanear seguridad
+        run: |
+          pip install bandit
+          bandit -r . -x ./test_app.py --skip B101
+
+  build-and-push:
+    needs: test-and-security
     runs-on: ubuntu-latest
-    name: Build and Deploy
-    needs: test
     steps:
-      - name: Descargar codigo
+      - name: Descargar código
         uses: actions/checkout@v4
 
-      - name: Iniciar sesion en Docker Hub
+      - name: Iniciar sesión en Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Construir y subir imagen
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v4
         with:
           context: .
-          push: true
-          tags: wscanga/app-backend:latest
+          push: false
+          load: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/app-backend:latest
+
+      - name: Escanear contenedor con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/app-backend:latest
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Subir imagen a Docker Hub
+        run: docker push "${{ secrets.DOCKER_USERNAME }}/app-backend:latest"
+
+      - name: Desplegar en servidor cloud
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/app-backend:latest
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DOCKER_IMAGE,DEPLOY_PATH
+          script: |
+            if [ -z "$DEPLOY_PATH" ]; then
+              DEPLOY_PATH="$HOME/Docker_compose"
+            fi
+            cd "$DEPLOY_PATH"
+            git pull --ff-only
+            echo "$DOCKER_PASSWORD" | sudo docker login --username "$DOCKER_USERNAME" --password-stdin
+            sudo docker compose pull app-backend
+            sudo --preserve-env=DOCKER_IMAGE docker compose up -d --no-build app-backend
