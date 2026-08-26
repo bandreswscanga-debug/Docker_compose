@@ -94,15 +94,6 @@ jobs:
           echo "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          REMOTE_CMD="set -ex; cd ${DEPLOY_PATH:-\$HOME/Docker_compose} && git fetch origin main && git reset --hard origin/main && docker compose build app-backend && docker compose up -d --no-build app-backend && docker compose ps app-backend"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            "${SERVER_USER}@${SERVER_HOST}" \
-            "export DEPLOY_PATH='$DEPLOY_PATH'; bash -s" <<'REMOTE'
-          set -ex
-          DEPLOY_PATH="${DEPLOY_PATH:-$HOME/Docker_compose}"
-          cd "$DEPLOY_PATH"
-          git fetch origin main
-          git reset --hard origin/main
-          docker compose build app-backend
-          docker compose up -d --no-build app-backend
-          docker compose ps app-backend
-          REMOTE
+            "${SERVER_USER}@${SERVER_HOST}" "$REMOTE_CMD"
