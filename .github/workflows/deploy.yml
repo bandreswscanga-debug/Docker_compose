@@ -86,6 +86,5 @@ jobs:
             cd "$DEPLOY_PATH"
             git fetch origin main
             git reset --hard origin/main
-            echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
-            docker compose pull app-backend
+            docker compose build app-backend
             docker compose up -d --no-build app-backend
