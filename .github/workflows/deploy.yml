@@ -84,7 +84,8 @@ jobs:
               DEPLOY_PATH="$HOME/Docker_compose"
             fi
             cd "$DEPLOY_PATH"
-            git pull --ff-only
-            echo "$DOCKER_PASSWORD" | sudo docker login --username "$DOCKER_USERNAME" --password-stdin
-            sudo docker compose pull app-backend
-            sudo --preserve-env=DOCKER_IMAGE docker compose up -d --no-build app-backend
+            git fetch origin main
+            git reset --hard origin/main
+            echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
+            docker compose pull app-backend
+            docker compose up -d --no-build app-backend
