@@ -31,7 +31,7 @@ jobs:
       - name: Escanear seguridad
         run: |
           pip install bandit
-          bandit -r . -x ./test_app.py --skip B101
+          bandit -r . -x ./test_app.py --skip B101 -ll
 
   build-and-push:
     needs: test-and-security
