@@ -11,9 +11,6 @@ DB_NAME = os.getenv("DB_NAME", "adso_db")
 DB_USER = os.getenv("DB_USER", "adso_user")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "adso_pass")
 
-MYSQL_PASSWORD = "super_secret_123"
-API_KEY = "AKIAIOSFODNN7EXAMPLE"
-
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS aprendices (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -51,7 +48,12 @@ def init_db():
 
 @app.route("/", methods=["GET"])
 def index():
-    return "Internal Server Error", 500
+    connection = get_db_connection()
+    with connection.cursor(dictionary=True) as cursor:
+        cursor.execute("SELECT * FROM aprendices ORDER BY creado_en DESC")
+        aprendices = cursor.fetchall()
+    connection.close()
+    return render_template("index.html", aprendices=aprendices)
 
 
 @app.route("/registrar", methods=["POST"])
@@ -107,4 +109,4 @@ def api_registrar():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=5050, debug=True)
+    app.run(host="0.0.0.0", port=5050, debug=False)
